@@ -15,8 +15,8 @@ if ( isset($_GET["game"]))
 $g_ip = getRealIpAddr();
 $ip = '';
 
-$target_lat = 32.4675765;
-$target_lon = -99.70698;
+$target_lat = 32.4675787;
+$target_lon = -99.70723875;
 $target_delta = 10.0;
 $meter1 = .00001;
 $playerCount = 0;
@@ -93,7 +93,7 @@ switch ($msg)
 		      if ( isset($_GET["lon"]))
 		      $lon = $_GET["lon"];
 		      else
-		      elog("oops lat missing");      
+		      elog("oops lon missing");      
 		      
 		      elog("game2p walking received by playerNum: $playerNum", 0);
 		      $distance = distance($lat, $lon, $target_lat, $target_lon);
