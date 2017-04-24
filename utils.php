@@ -3,8 +3,9 @@
 
 function elog($x) { $now = date("Y-m-d H:i:s"); error_log($now . ": ". $x);}
 
-function gameIsOver ( $winner ) {
+function connectDB () {
   require 'database.inc';
+  $conn="";
   $dbPlayerCount = -1;
   try {
     $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);
@@ -14,25 +15,77 @@ function gameIsOver ( $winner ) {
     echo "Connection failed: " . $e->getMessage();
     exit;
   }
-  $stmt = $conn->prepare("update game set winner = $winner");
-  $stmt->execute();
+  return $conn;
+}
+
+function thisGameIsOver ($game, $winner ) {
+  $conn = connectDB();
+  $stmt = $conn->prepare("update game set winner = ? where id = ?");
+  $stmt->execute(array($winner, $game));
   //?? we should check something
   $conn = null;
 }
 
-function isGameOver( &$winner ) {
-  require 'database.inc';
-  $dbPlayerCount = -1;
-  try {
-    $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+function countSpots($gameId) {
+  $conn = connectDB();
+  $stmt = $conn->prepare("select count(id) spots from spot where gameId = ?");
+  $stmt->execute( array($gameId) );
+  $rc = $stmt->fetch(PDO::FETCH_ASSOC);
+  if ($rc) {
+    return $rc['spots'];
   }
-  catch(PDOException $e){
-    echo "Connection failed: " . $e->getMessage();
-    exit;
+  // should really complain about bogus game, but to keep the peace I'll just answer 0
+  return 0
+
+function findNextTarget ($gameId, $playerId) {
+  echo "findNextTarget...";
+  $conn = connectDB();
+  $stmt = $conn->prepare("SELECT max(sequenceId) spot from arrival where playerId = ? and gameId = ?");
+  $stmt->execute( array( $playerId, $gameId));
+  $rc = $stmt->fetch(PDO::FETCH_ASSOC);
+  var_dump($rc);
+  $spot= array(0,0);
+  echo "findNextTarget... rc: $rc";
+  if ($rc) {
+    $spot = $rc['spot'];
+    echo "findNextTarget $gameId, $playerId: $rc";
+    $stmt = $conn->prepare("SELECT sequenceId sequence, spotId spot from path where gameId = ? and sequenceId = ? + 1");
+    $stmt->execute( array( $gameId, $spot ));
+    $rc2 = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($rc2) {
+      $nextSpot = $rc2['spot'];
+      $stmt = $conn->prepare("SELECT lat, lon, id from spot where gameId = ? and id = ?");
+      $stmt->execute( array( $gameId, $nextSpot));
+      $rc3 = $stmt->fetch(PDO::FETCH_ASSOC);
+      return array($rc3['lat'], $rc3['lon'], $rc3['id']);
+    }
+    else {
+      thisGameIsOver($gameId, $playerId);
+      return array(0,0,0);
+    }
   }
-  $stmt = $conn->prepare("SELECT winner from game where id = 1");
-  $stmt->execute();
+  else { //first spot
+    $stmt = $conn->prepare("SELECT sequenceId sequence, spotId spot from path where gameId = ? and sequenceId = 1");
+    $stmt->execute( array( $gameId ));
+    $rc2 = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($rc2) {
+      $nextSpot = $rc2['spot'];
+      $stmt = $conn->prepare("SELECT lat, lon from spot where gameId = ? and id = ?");
+      $stmt->execute( array( $gameId, $nextSpot));
+      $rc3 = $stmt->fetch(PDO::FETCH_ASSOC);
+      return array($rc3['lat'], $rc3['lon'], $rc3['id']);
+    }
+    else {
+      thisGameIsOver($gameId, $playerId);
+      return array(0,0,0);
+    }
+  }
+}
+
+function isGameOver( $game, &$winner ) {
+  $conn = connectDB();
+  $stmt = $conn->prepare("SELECT winner from game where id = ?");
+  $stmt->execute( array($game));
 
   $rc = $stmt->fetch(PDO::FETCH_ASSOC);
   $winnerId = $rc['winner'];
@@ -49,39 +102,34 @@ function isGameOver( &$winner ) {
   return $rc;  
 }
 
-//$w = -99;
-//$rc = isGameOver( $w );
-//print "winner: $w and return code is: $rc";
-
 function resetGame($id = 0) {
-  require_once "database.inc";
-  try {
-    $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-  }
-  catch(PDOException $e){
-    echo "resetGame Connection failed: " . $e->getMessage();
-    exit;
-  }
-  $stmt = $conn->prepare("update game set playerCount = 0, winner = -1 where id = $id");
+  $conn = connectDB();
+  $stmt = $conn->prepare("update game set playerCount = 0, winner = -1 where id = ?");
+  $stmt->execute( array($id));
+
+  elog("game2p game $id was reset.");
+  $conn = null;
+}
+
+function newGame($id = 0) {
+  $conn = connectDB();
+  $stmt = $conn->prepare("select max(id) max from game where id = ?");
+  $stmt->execute(array($id));
+  $rc = $stmt->fetch(PDO::FETCH_ASSOC);
+  elog("newGame " . print_r($rc, true));
+  $maxId = $rc['max'];
+
+  $stmt = $conn->prepare("insert into game (id, playerCount, maxPlayers, winner, description) values (?,?,?,?,?)");
+  $stmt->bind_param("iiiis", 1,2,3,4,5); //does this need to change?
   $stmt->execute();
 
   elog("game2p game $id was reset.");
   $conn = null;
 }
 
-function getPlayerCount($increment = false) {
-  require_once "database.inc";
-  $dbPlayerCount = -1;
-  try {
-    $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-  }
-  catch(PDOException $e){
-    echo "Connection failed: " . $e->getMessage();
-    exit;
-  }
-  $stmt = $conn->prepare("SELECT playerCount from game where id = 1");
+function getPlayerCount($increment = false, $id) {
+  $conn = connectDB();
+  $stmt = $conn->prepare("SELECT playerCount from game where id = $id");
   $stmt->execute();
   
   //  $result = $stmt->setFetchMode(PDO::FETCH_ASSOC);
@@ -91,12 +139,21 @@ function getPlayerCount($increment = false) {
   $dbPlayerCount = $rc['playerCount'];
   
   if ($increment)  {
-    $stmt = $conn->prepare("update game set playerCount = playerCount + 1 where id = 1");
-    $stmt->execute();
+    $stmt = $conn->prepare("update game set playerCount = playerCount + 1 where id = ?");
+    $stmt->execute(array($id));
   }
   elog("game2p playercount from db is $dbPlayerCount.  Incremented? $increment");
   $conn = null;
   return $dbPlayerCount;
+}
+
+function playerArrivedAtSpot($gameId, $playerId, $spotId) {
+  $conn = connectDB();
+  $nowish  = new \DateTime( 'now',  new \DateTimeZone( 'UTC' ) );
+  $stmt = $conn->prepare("insert into arrival (gameId, playerId, spotId, arrived) values (?,?,?,?)");
+  //  $stmt->bind_param("iiis", 1,2,3,"blee");
+  $stmt->execute( array($gameId, $playerId, $spotId, $nowish)) ;
+  
 }
 
 function distance($lat1, $lon1, $lat2, $lon2) {
