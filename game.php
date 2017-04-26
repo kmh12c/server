@@ -8,6 +8,8 @@ if ( isset($_GET["msg"]))
 $playerNum=0;
 if ( isset($_GET["playerNum"]))
   $playerNum = $_GET["playerNum"];
+else
+	$playerNum = 1; //change this
 
 if ( isset($_GET["game"]))
   $game = $_GET["game"];
@@ -17,13 +19,14 @@ else
 $g_ip = getRealIpAddr();
 $ip = '';
 
-$target_lat = 32.4675787;
-$target_lon = -99.70723875;
+$target_lat = 32.6;
+$target_lon = -99.4;
 $target_delta = 10.0;
 $meter1 = .00001;
-$playerCount = 0;
+$playerCount = 1;
 $playerList = array();
 $spot = 0;
+$latlon = array();
 
 switch ($msg) 
 {
@@ -35,16 +38,17 @@ switch ($msg)
 		// return the list of games available
 		break;
 	case "start":
-		$playerCount = getPlayerCount(true, $game);
-  		$playerCount ++;
+		//$playerCount = getPlayerCount(true, $game);
+  		//$playerNum = $playerCount++;
+  		echo "PlayerId:[$playerCount], GameId:[$game]";
   		elog($game, "start blee received.  Playercount now: " . $playerCount . " ip: [$g_ip]", 0);
   		//get first target
-  		$latlong = findNextTarget ($gameId, $playerId);
-  		$target_lat = $latlon(0);
-  		$target_lon = $latlon(1);
-  		$spot = $latlon(2);
+  		$latlon = findNextTarget($game, $playerNum);
+  		$target_lat = 32.6; //$latlon['lat'];
+  		$target_lon = -99.4; //$latlon['lon'];
+  		$spot = $latlon['id'];
   		$things = array( 'msg'=> 'welcome', 'game'=> $game, 'latitude'=>$target_lat, 'longitude'=>$target_lon,
-		   'ip' => $g_ip, 'playerNum' => $playerCount);
+		   'ip' => $g_ip, 'playerNum' => $playerNum);
   		break;
 	case "walking":
 		// we might have lost the game - see if it is already over
@@ -75,11 +79,12 @@ switch ($msg)
 		     	 $things = array( 'msg' => 'gameover', 'winner' => $aWinner, 'PlayerNum' => $playerNum );
 		     	}
 		     	else {
-		     		$latlong = findNextTarget ($gameId, $playerId);
-  					$target_lat = $latlon(0);
-  					$target_lon = $latlon(1);
-  					$spot = $latlon(2);
-		     		$things = array( 'msg'=> 'arrived', 'latitude'=>$lat, 'longitude'=>$lon, 'ip' => $g_ip);
+		     		//$latlon = findNextTarget ($game, $playerNum);
+  					$target_lat = 32.3;//$latlon['lat'];
+  					$target_lon = -99.1;
+//$latlon['lon'];
+  					$spot = $latlon['id'];
+		     		$things = array( 'msg'=> 'arrived', 'latitude'=>$target_lat, 'longitude'=>$target_lon, 'ip' => $g_ip);
 		     	}
 		     	
 		    } else {

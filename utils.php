@@ -1,7 +1,10 @@
 <?php
 // utils.php
 
-function elog($x) { $now = date("Y-m-d H:i:s"); error_log($now . ": ". $x);}
+function elog($x) { 
+  $now = date("Y-m-d H:i:s"); 
+  error_log($now . ": ". $x);
+}
 
 function connectDB () {
   require 'database.inc';
@@ -35,33 +38,30 @@ function countSpots($gameId) {
     return $rc['spots'];
   }
   // should really complain about bogus game, but to keep the peace I'll just answer 0
-  return 0
+  return 0;
+}
 
 function findNextTarget ($gameId, $playerId) {
-  echo "findNextTarget...";
   $conn = connectDB();
   $stmt = $conn->prepare("SELECT max(sequenceId) spot from arrival where playerId = ? and gameId = ?");
   $stmt->execute( array( $playerId, $gameId));
   $rc = $stmt->fetch(PDO::FETCH_ASSOC);
   var_dump($rc);
-  $spot= array(0,0);
-  echo "findNextTarget... rc: $rc";
-  if ($rc) {
+  if ($rc['spot'] != NULL) {
     $spot = $rc['spot'];
-    echo "findNextTarget $gameId, $playerId: $rc";
     $stmt = $conn->prepare("SELECT sequenceId sequence, spotId spot from path where gameId = ? and sequenceId = ? + 1");
     $stmt->execute( array( $gameId, $spot ));
     $rc2 = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($rc2) {
+    if ($rc2['spot'] != NULL) {
       $nextSpot = $rc2['spot'];
       $stmt = $conn->prepare("SELECT lat, lon, id from spot where gameId = ? and id = ?");
       $stmt->execute( array( $gameId, $nextSpot));
       $rc3 = $stmt->fetch(PDO::FETCH_ASSOC);
-      return array($rc3['lat'], $rc3['lon'], $rc3['id']);
+      return array('lat' => $rc3['lat'],'lon' => $rc3['lon'],'id' => $rc3['id']);
     }
     else {
       thisGameIsOver($gameId, $playerId);
-      return array(0,0,0);
+      return array('lat' => 0,'lon' => 0,'id' => 0);
     }
   }
   else { //first spot
@@ -73,11 +73,11 @@ function findNextTarget ($gameId, $playerId) {
       $stmt = $conn->prepare("SELECT lat, lon from spot where gameId = ? and id = ?");
       $stmt->execute( array( $gameId, $nextSpot));
       $rc3 = $stmt->fetch(PDO::FETCH_ASSOC);
-      return array($rc3['lat'], $rc3['lon'], $rc3['id']);
+      return array('lat' => $rc3['lat'],'lon' => $rc3['lon'],'id' => $rc3['id']);
     }
     else {
       thisGameIsOver($gameId, $playerId);
-      return array(0,0,0);
+      return array('lat' => 0,'lon' => 0,'id' => 0);
     }
   }
 }
@@ -150,9 +150,8 @@ function getPlayerCount($increment = false, $id) {
 function playerArrivedAtSpot($gameId, $playerId, $spotId) {
   $conn = connectDB();
   $nowish  = new \DateTime( 'now',  new \DateTimeZone( 'UTC' ) );
-  $stmt = $conn->prepare("insert into arrival (gameId, playerId, spotId, arrived) values (?,?,?,?)");
-  //  $stmt->bind_param("iiis", 1,2,3,"blee");
-  $stmt->execute( array($gameId, $playerId, $spotId, $nowish)) ;
+  $stmt = $conn->prepare("insert into arrival (gameId, playerId, sequenceId, at) values (?,?,?,?)");
+  $stmt->execute( array($gameId, $playerId, $spotId, $nowish->format('Y-m-d H:i:s'))) ;
   
 }
 
