@@ -44,8 +44,8 @@ switch ($msg)
   		elog($game, "start blee received.  Playercount now: " . $playerCount . " ip: [$g_ip]", 0);
   		//get first target
   		$latlon = findNextTarget($game, $playerNum);
-  		$target_lat = 32.6; //$latlon['lat'];
-  		$target_lon = -99.4; //$latlon['lon'];
+  		$target_lat = 32.4679134; //$latlon['lat'];
+  		$target_lon = -99.70692044; //$latlon['lon'];
   		$spot = $latlon['id'];
   		$things = array( 'msg'=> 'welcome', 'game'=> $game, 'latitude'=>$target_lat, 'longitude'=>$target_lon,
 		   'ip' => $g_ip, 'playerNum' => $playerNum);
@@ -80,11 +80,11 @@ switch ($msg)
 		     	}
 		     	else {
 		     		//$latlon = findNextTarget ($game, $playerNum);
-  					$target_lat = 32.3;//$latlon['lat'];
-  					$target_lon = -99.1;
+  					$target_lat = 32.4684332;//$latlon['lat'];
+  					$target_lon = -99.7064923;
 //$latlon['lon'];
   					$spot = $latlon['id'];
-		     		$things = array( 'msg'=> 'arrived', 'latitude'=>$target_lat, 'longitude'=>$target_lon, 'ip' => $g_ip);
+		     		$things = array( 'msg'=> 'checkpoint', 'latitude'=>$target_lat, 'longitude'=>$target_lon, 'ip' => $g_ip);
 		     	}
 		     	
 		    } else {
