@@ -16,17 +16,23 @@ if ( isset($_GET["game"]))
 else
   $game = 1;
 
-$g_ip = getRealIpAddr();
-$ip = '';
+if ( isset($_GET["lat"]))
+  $lat = $_GET["lat"];
 
-$target_lat = 32.6;
-$target_lon = -99.4;
-$target_delta = 10.0;
+if ( isset($_GET["lon"]))
+	$lon = $_GET["lon"];
+
+$g_ip = getRealIpAddr();
+$target_lat = 0;
+$target_lon = 0;
+$target_delta = .0001;
 $meter1 = .00001;
 $playerCount = 1;
 $playerList = array();
-$spot = 0;
 $latlon = array();
+$description = "";
+$lat = 0;
+$lon = 0;
 
 switch ($msg) 
 {
@@ -38,60 +44,66 @@ switch ($msg)
 		// return the list of games available
 		break;
 	case "start":
-		//$playerCount = getPlayerCount(true, $game);
-  		//$playerNum = $playerCount++;
-  		echo "PlayerId:[$playerCount], GameId:[$game]";
-  		elog($game, "start blee received.  Playercount now: " . $playerCount . " ip: [$g_ip]", 0);
+		$playerCount = getPlayerCount(true, $game);
+  		$playerNum = $playerCount++;
   		//get first target
   		$latlon = findNextTarget($game, $playerNum);
-  		$target_lat = 32.4679134; //$latlon['lat'];
-  		$target_lon = -99.70692044; //$latlon['lon'];
-  		$spot = $latlon['id'];
-  		$things = array( 'msg'=> 'welcome', 'game'=> $game, 'latitude'=>$target_lat, 'longitude'=>$target_lon,
-		   'ip' => $g_ip, 'playerNum' => $playerNum);
+  		$target_lat = $latlon['lat'];
+  		$target_lon = $latlon['lon'];
+  		$description = $latlon['description'];
+  		$things = array( 'msg'=> 'welcome', 'game'=> $game, 'lat'=>$target_lat, 'lon'=>$target_lon, 'description' => $description, 'ip' => $g_ip, 'playerNum' => $playerNum);
   		break;
 	case "walking":
 		// we might have lost the game - see if it is already over
-		  $aWinner = -99;
-		    if (isGameOver( $game, $aWinner )) {
-		      elog("evidently the game is over.");
-		      $things = array( 'msg' => 'gameover', 'winner' => $aWinner, 'PlayerNum' => $playerNum );
+
+		$aWinner = -99;
+	    $aWinner = isGameOver($game, $aWinner);
+		if ($aWinner >= 1) {
+		    	if ($aWinner == $playerNum)
+					$things = array( 'msg' => 'win', 'winner' => $aWinner, 'PlayerNum' => $playerNum );
+		    	else
+		      		$things = array( 'msg' => 'gameover', 'winner' => $aWinner, 'PlayerNum' => $playerNum );
 		  } else {
-		      //
 		      if ( isset($_GET["lat"]))
 		      $lat = $_GET["lat"];
-		      else
-		      elog("oops lat missing");      
 		      
 		      if ( isset($_GET["lon"]))
 		      $lon = $_GET["lon"];
-		      else
-		      elog("oops lon missing");      
+
+		  	  if ( isset($_GET["targetlat"]))
+		      $target_lat = $_GET["targetlat"];
 		      
-		      elog("game2p walking received by playerNum: $playerNum", 0);
+		      if ( isset($_GET["targetlon"]))
+		      $target_lon = $_GET["targetlon"];
+		      
 		      $distance = distance($lat, $lon, $target_lat, $target_lon);
 		      $playerList[$playerNum] = $distance;
 		      
 		      if ($distance < $target_delta) {
-		        playerArrivedAtSpot($game, $playerNum, $spot);
-		        if (isGameOver( $game, $aWinner )) {
-		    	  elog("evidently the game is over.");
-		     	 $things = array( 'msg' => 'gameover', 'winner' => $aWinner, 'PlayerNum' => $playerNum );
+		        playerArrivedAtSpot($game, $playerNum);
+		        $aWinner = isGameOver( $game, $aWinner );
+		        if ($aWinner == $playerNum) {
+		     	 $things = array( 'msg' => 'win', 'winner' => $aWinner, 'PlayerNum' => $playerNum );
+		     	}
+		     	elseif ($aWinner > 0) {
+		     		$things = array( 'msg' => 'gameover', 'winner' => $aWinner, 'PlayerNum' => $playerNum );
 		     	}
 		     	else {
-		     		//$latlon = findNextTarget ($game, $playerNum);
-  					$target_lat = 32.4684332;//$latlon['lat'];
-  					$target_lon = -99.7064923;
-//$latlon['lon'];
-  					$spot = $latlon['id'];
-		     		$things = array( 'msg'=> 'checkpoint', 'latitude'=>$target_lat, 'longitude'=>$target_lon, 'ip' => $g_ip);
+		     		$latlon = findNextTarget ($game, $playerNum);
+  					$target_lat = $latlon['lat'];
+  					$target_lon = $latlon['lon'];
+  					$description = $latlon['description'];
+		     		$things = array( 'msg'=> 'checkpoint', 'lat'=>$target_lat, 'lon'=>$target_lon, 'description' => $description, 'ip' => $g_ip);
 		     	}
 		     	
 		    } else {
-		        $things = array( 'msg'=> 'keepwalking', 'latitude'=>$lat, 'longitude'=>$lon, 'distance'=>$distance, 'ip' => $g_ip, 'playerNum' => $playerNum);
+		        $things = array( 'msg'=> 'keepwalking', 'lat'=>$lat, 'lon'=>$lon, 'target lat'=>$target_lat, 'target lon'=>$target_lon, 'distance'=>$distance, 'target delta' => $target_delta, 'ip' => $g_ip, 'playerNum' => $playerNum);
 		    }
 		  }
 		  break;
+
+		$things = array( 'msg'=> 'keepwalking', 'game'=> $game, 'lat'=>$target_lat, 'lon'=>$target_lon, 'description' => $description, 'ip' => $g_ip, 'playerNum' => $playerNum);
+		break;
 
 	default:
 	  $things = array( 'msg'=> 'speakbetter', 'ip' => $g_ip);
